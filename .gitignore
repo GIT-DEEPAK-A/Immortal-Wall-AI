@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Database
+*.db
+
+# Model files
+*.pkl
+
+# Temporary files
+*.tmp
+*.swp
+
+# Testing
+.coverage
+htmlcov/
+
+# Environment variables
+.env
+
+# Node (if frontend added later)
+node_modules/
