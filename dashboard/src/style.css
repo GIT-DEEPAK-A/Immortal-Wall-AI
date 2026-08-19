@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Reset / base ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #050810;
+  color: #EAEAEA;
+  font-family: 'Poppins', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar          { width: 4px; height: 4px; }
+::-webkit-scrollbar-track    { background: #0A0F1C; }
+::-webkit-scrollbar-thumb    { background: #D4AF3755; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #D4AF37aa; }
+
+/* ── Selection ──────────────────────────────────────────────── */
+::selection { background: rgba(212,175,55,0.25); }
+
+/* ── Font helpers exposed as utilities ──────────────────────── */
+.font-orbitron { font-family: 'Orbitron', monospace; }
+
+/* ── Tailwind surface-darker (not in config) ────────────────── */
+.bg-surface-darker { background-color: #0A0F1C; }

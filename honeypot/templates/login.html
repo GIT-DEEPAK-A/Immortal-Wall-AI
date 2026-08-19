@@ -1,0 +1,69 @@
+<!-- honeypot/templates/login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Immortal Wall AI 🛡️ - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0B0B;
+            color: #FFD700;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-container {
+            background-color: #1A1A1A;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+            width: 350px;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #D4AF37;
+            border-radius: 6px;
+            background-color: #121212;
+            color: #FFD700;
+            font-size: 16px;
+        }
+        input[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            background-color: #D4AF37;
+            color: #0B0B0B;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        input[type="submit"]:hover {
+            box-shadow: 0 0 15px #FFD700;
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Immortal Wall AI 🛡️</h1>
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <input type="submit" value="Login">
+        </form>
+    </div>
+</body>
+</html>

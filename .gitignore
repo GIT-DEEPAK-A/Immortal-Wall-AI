@@ -1,40 +1,113 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.manifest
+*.spec
 
-# Virtual Environment
+# ── Virtual environments ───────────────────────────────────────────────────
 venv/
+.venv/
+env/
 .env/
+ENV/
 
-# Logs
+# ── Environment / secrets ─────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+secrets.json
+credentials.json
+
+# ── Logs ──────────────────────────────────────────────────────────────────
 logs/
 *.log
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# VS Code
-.vscode/
-
-# Database
+# ── Database files ────────────────────────────────────────────────────────
 *.db
+*.sqlite
+*.sqlite3
+data/
 
-# Model files
+# ── ML model artifacts ────────────────────────────────────────────────────
+models/
 *.pkl
+*.pickle
+*.joblib
+*.h5
+*.pt
+*.pth
+*.onnx
 
-# Temporary files
+# ── Testing & coverage ────────────────────────────────────────────────────
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+*.hypothesis/
+
+# ── Node / frontend ───────────────────────────────────────────────────────
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/
+.vite/
+*.local
+
+# ── Build output ──────────────────────────────────────────────────────────
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# ── OS artifacts ──────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── IDE / editor ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+*.iws
+.project
+.classpath
+*.sublime-project
+*.sublime-workspace
+
+# ── Temporary files ───────────────────────────────────────────────────────
 *.tmp
 *.swp
+*.swo
+*~
+.cache/
 
-# Testing
-.coverage
-htmlcov/
+# ── Type checking ─────────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
 
-# Environment variables
-.env
+# ── Jupyter ───────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# Node (if frontend added later)
-node_modules/
+# ── Docker ────────────────────────────────────────────────────────────────
+.docker/
+docker-compose.override.yml
