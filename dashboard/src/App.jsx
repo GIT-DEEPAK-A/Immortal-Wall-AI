@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
 import SplashScreen from "./components/SplashScreen";
 import LoginPage    from "./components/LoginPage";
 import Dashboard    from "./components/Dashboard";
-
-const API = "http://localhost:8000";
+import { createApiClient, setAuthToken } from "./api";
 
 /* ─────────────────────────────────────────────
    App — manages the three-phase flow:
@@ -25,16 +23,38 @@ function App() {
     systemLoad:        "normal",
   });
 
+  // JWT stored in a ref — never in state or localStorage (XSS risk)
+  const tokenRef           = useRef(null);
+  const apiRef             = useRef(null);   // axios instance with Bearer header
   const wsRef              = useRef(null);
   const reconnectTimer     = useRef(null);
   const reconnectAttempts  = useRef(0);
   const MAX_RECONNECT      = 10;
 
-  /* ── WebSocket ──────────────────────────────────── */
+  /* ── Called by LoginPage on success ────────────────── */
+  const handleLogin = (token) => {
+    tokenRef.current = token;
+    // Build a dedicated axios instance that attaches the token as default header
+    // and routes 401 responses back to the login screen.
+    apiRef.current = createApiClient(token, handleLogout);
+    setPhase("dashboard");
+  };
+
+  const handleLogout = () => {
+    tokenRef.current = null;
+    apiRef.current   = null;
+    disconnectWS();
+    setPhase("login");
+  };
+
+  /* ── WebSocket ──────────────────────────────────────── */
   const connectWS = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    const token = tokenRef.current;
+    if (!token) return;
     try {
-      const ws = new WebSocket("ws://localhost:8000/ws");
+      // Pass the JWT as a query parameter — browser WS API can't set headers
+      const ws = new WebSocket(`ws://localhost:8000/ws?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -66,8 +86,13 @@ function App() {
         } catch { /* ignore malformed */ }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (evt) => {
         wsRef.current = null;
+        // Code 1008 = server rejected due to bad token — go to login
+        if (evt.code === 1008) {
+          handleLogout();
+          return;
+        }
         if (reconnectAttempts.current < MAX_RECONNECT) {
           const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30_000);
           reconnectAttempts.current += 1;
@@ -87,19 +112,21 @@ function App() {
     clearTimeout(reconnectTimer.current);
   };
 
-  /* ── REST fetch on login ────────────────────────── */
+  /* ── REST fetch on login ─────────────────────────────── */
   const fetchInitialData = async () => {
+    const api = apiRef.current;
+    if (!api) return;
     try {
       const [statusRes, threatsRes, logsRes, analyticsRes] = await Promise.allSettled([
-        axios.get(`${API}/api/system-status`),
-        axios.get(`${API}/api/threats?limit=50`),
-        axios.get(`${API}/api/logs?limit=100`),
-        axios.get(`${API}/api/analytics?timeframe=24h`),
+        api.get("/api/system-status"),
+        api.get("/api/threats?limit=50"),
+        api.get("/api/logs?limit=100"),
+        api.get("/api/analytics?timeframe=24h"),
       ]);
 
-      if (statusRes.status   === "fulfilled") setStatus(statusRes.value.data);
-      if (threatsRes.status  === "fulfilled") setThreats(threatsRes.value.data.threats  ?? []);
-      if (logsRes.status     === "fulfilled") setLogs(logsRes.value.data.logs           ?? []);
+      if (statusRes.status    === "fulfilled") setStatus(statusRes.value.data);
+      if (threatsRes.status   === "fulfilled") setThreats(threatsRes.value.data.threats  ?? []);
+      if (logsRes.status      === "fulfilled") setLogs(logsRes.value.data.logs           ?? []);
       if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value.data);
 
       const sm = statusRes.value?.data?.system_metrics;
@@ -131,8 +158,8 @@ function App() {
   useEffect(() => () => disconnectWS(), []);
 
   /* ── Render ── */
-  if (phase === "splash")    return <SplashScreen onEnter={() => setPhase("login")} />;
-  if (phase === "login")     return <LoginPage    onLogin={() => setPhase("dashboard")} />;
+  if (phase === "splash") return <SplashScreen onEnter={() => setPhase("login")} />;
+  if (phase === "login")  return <LoginPage onLogin={handleLogin} />;
 
   return (
     <Dashboard
@@ -141,7 +168,8 @@ function App() {
       logs={logs}
       analytics={analytics}
       realTimeData={realTimeData}
-      onLogout={() => setPhase("login")}
+      apiClient={apiRef.current}
+      onLogout={handleLogout}
     />
   );
 }

@@ -11,13 +11,10 @@ import HoneypotsPage from "./HoneypotsPage";
 import LiveAttacksPage from "./LiveAttacksPage";
 import AnalyticsPage from "./AnalyticsPage";
 import SettingsPage from "./SettingsPage";
+import MLStatusPanel from "./MLStatusPanel";
 
-const Dashboard = ({ status, threats, logs, analytics, realTimeData, onLogout }) => {
+const Dashboard = ({ status, threats, logs, analytics, realTimeData, apiClient, onLogout }) => {
   const [activePage, setActivePage] = useState("Dashboard");
-
-  const handlePageChange = (pageName) => {
-    setActivePage(pageName);
-  };
 
   const renderContent = () => {
     switch (activePage) {
@@ -25,6 +22,7 @@ const Dashboard = ({ status, threats, logs, analytics, realTimeData, onLogout })
         return (
           <div className="flex-1 flex flex-col">
             <main className="flex-1 p-6 space-y-6">
+              {/* Status cards row */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -33,6 +31,16 @@ const Dashboard = ({ status, threats, logs, analytics, realTimeData, onLogout })
                 <StatusCards status={status} threats={threats} logs={logs} />
               </motion.div>
 
+              {/* ML Status Panel — full width, below status cards */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.15 }}
+              >
+                <MLStatusPanel apiClient={apiClient} />
+              </motion.div>
+
+              {/* Globe + Threat alerts */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -52,6 +60,7 @@ const Dashboard = ({ status, threats, logs, analytics, realTimeData, onLogout })
                 </motion.div>
               </div>
 
+              {/* Honeypot + Terminal logs */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -102,7 +111,11 @@ const Dashboard = ({ status, threats, logs, analytics, realTimeData, onLogout })
 
   return (
     <div className="min-h-screen bg-dark text-text-primary font-poppins flex">
-      <Sidebar activeItem={activePage} onItemClick={handlePageChange} onLogout={onLogout} />
+      <Sidebar
+        activeItem={activePage}
+        onItemClick={setActivePage}
+        onLogout={onLogout}
+      />
 
       <AnimatePresence mode="wait">
         <motion.div

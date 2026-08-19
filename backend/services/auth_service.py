@@ -1,19 +1,25 @@
 # backend/services/auth_service.py
-# Passkey-only authentication. No SMTP, no OTP, no registration.
+"""
+Authentication service.
 
-import os
+Delegates all credential verification to UserRepository so the hashing
+logic lives in exactly one place (PBKDF2-HMAC-SHA256, 100 000 iterations).
+"""
 
+from __future__ import annotations
 
-SYSTEM_PASSKEY = os.getenv("SYSTEM_PASSKEY", "123456")
+from backend.container import db
 
 
 class AuthService:
-    """
-    Minimal auth service: validates the single system passkey.
-    Extend this to add JWT tokens, RBAC, or audit logging when needed.
-    """
+    """Thin wrapper around UserRepository for auth operations."""
 
     @staticmethod
-    def verify_passkey(passkey: str) -> bool:
-        """Return True if the provided passkey matches the system passkey."""
-        return passkey == SYSTEM_PASSKEY
+    def verify_credentials(email: str, password: str) -> bool:
+        """Return True if email + password match a record in the users table."""
+        return db.verify_user_password(email, password)
+
+    @staticmethod
+    def get_user(email: str):
+        """Return the User ORM instance for *email*, or None."""
+        return db.get_user_by_email(email)

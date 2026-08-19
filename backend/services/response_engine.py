@@ -1,166 +1,195 @@
-# backend/services/response_engine.py
+"""
+backend/services/response_engine.py
+─────────────────────────────────────
+Automated response engine for Immortal Wall AI.
 
-import os
-import json
-import time
+Key design decisions
+────────────────────
+- blocked_ips      : persisted in the BlockedIP database table.
+                     An in-memory set provides O(1) hot-path checks (is_blocked).
+- whitelisted_ips  : static set in code; extend to a DB table if runtime
+                     management is needed.
+- send_alert()     : writes a CRITICAL LogEntry to the database.  No file I/O.
+- _log_action()    : uses the structured application logger, not print().
+- Dependency injection: DatabaseManager is passed in via __init__ so the
+  application shares one DB instance and one blocked_ips cache.
+"""
+
+from __future__ import annotations
+
+import logging
 from datetime import datetime
+from typing import TYPE_CHECKING, Optional, Set
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BLOCKLIST_PATH = os.path.join(BASE_DIR, "data", "blocked_ips.json")
-WHITELIST_PATH = os.path.join(BASE_DIR, "data", "whitelisted_ips.json")
+if TYPE_CHECKING:
+    from backend.database.db import DatabaseManager
 
-# Ensure data directory and files exist
-os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
-for _path in [BLOCKLIST_PATH, WHITELIST_PATH]:
-    if not os.path.exists(_path):
-        with open(_path, "w") as _f:
-            json.dump([], _f)
+logger = logging.getLogger("backend.response_engine")
 
-
-def load_ips(path: str) -> list:
-    try:
-        with open(path, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return []
-
-
-def save_ips(path: str, ip_list: list) -> None:
-    with open(path, "w") as f:
-        json.dump(ip_list, f, indent=2)
+# Whitelist is intentionally kept static in code.
+# Add IPs that must never be blocked (loopback, management, etc.).
+_STATIC_WHITELIST: Set[str] = {
+    "127.0.0.1",
+    "::1",
+    "10.0.0.1",
+}
 
 
 class ResponseEngine:
-    def __init__(self):
-        self.blocked_ips = set(load_ips(BLOCKLIST_PATH))
-        self.whitelisted_ips = set(load_ips(WHITELIST_PATH))
+    """
+    DB-backed response engine.
 
-    # ------------------------------------------------------------------
-    # Core blocking methods
-    # ------------------------------------------------------------------
+    Parameters
+    ----------
+    db_manager : DatabaseManager, optional
+        Shared database manager.  If not provided, a new one is created
+        (backwards-compatible behaviour for tests that instantiate directly).
+    """
 
-    def block_ip(self, ip: str, hard: bool = True) -> str:
-        """Block an IP address. hard=True → fully block; hard=False → soft block."""
+    def __init__(self, db_manager: Optional["DatabaseManager"] = None) -> None:
+        if db_manager is None:
+            # Lazy import to avoid circular dependency at module load time.
+            from backend.database.db import DatabaseManager as _DM
+            db_manager = _DM()
+
+        self._db = db_manager
+        self.whitelisted_ips: Set[str] = set(_STATIC_WHITELIST)
+        # Load all currently-blocked IPs from DB into the in-memory set.
+        self.blocked_ips: Set[str] = self._db.load_active_blocked_ips()
+        logger.info(
+            "ResponseEngine initialised — %d IPs pre-loaded from DB.",
+            len(self.blocked_ips),
+        )
+
+    # ── Core blocking ──────────────────────────────────────────────────────
+
+    def block_ip(self, ip: str, hard: bool = True, reason: Optional[str] = None) -> str:
+        """
+        Block an IP address.
+
+        Writes to the BlockedIP table and updates the in-memory set.
+        Returns a short action string ("HARD BLOCK" / "SOFT BLOCK").
+        Whitelisted IPs are never blocked.
+        """
         if ip in self.whitelisted_ips:
-            return f"IP {ip} is whitelisted, not blocking."
+            logger.debug("block_ip skipped — %s is whitelisted.", ip)
+            return f"IP {ip} is whitelisted — block skipped."
 
-        if hard:
-            if ip not in self.blocked_ips:
-                self.blocked_ips.add(ip)
-                save_ips(BLOCKLIST_PATH, list(self.blocked_ips))
-            action = "HARD BLOCK"
-        else:
-            action = self.apply_soft_block(ip)
-
-        print(f"[ResponseEngine] {action} applied to {ip}")
+        action = "HARD BLOCK" if hard else "SOFT BLOCK"
+        self._db.block_ip_in_db(ip, hard_block=hard, reason=reason or f"Automated {action.lower()}")
+        self.blocked_ips.add(ip)
+        logger.warning("[ResponseEngine] %s applied to %s", action, ip)
         return action
 
     def apply_soft_block(self, ip: str, duration: int = 5) -> str:
-        """Apply a soft block to slow down a suspicious IP."""
+        """Soft-block an IP (rate-limit signal; not a permanent hard block)."""
         if ip in self.whitelisted_ips:
-            return f"IP {ip} is whitelisted, cannot apply soft block."
-        # In production this integrates with firewall/rate-limiter.
-        # Here we just record the action without actually sleeping the server.
-        print(f"[ResponseEngine] SOFT BLOCK applied to {ip} for {duration}s")
+            return f"IP {ip} is whitelisted — soft block skipped."
+        self._db.block_ip_in_db(ip, hard_block=False, reason=f"Soft block ({duration}s)")
+        self.blocked_ips.add(ip)
+        logger.warning("[ResponseEngine] SOFT BLOCK applied to %s for %ds", ip, duration)
         return f"SOFT BLOCK ({duration}s)"
 
     def unblock_ip(self, ip: str) -> bool:
-        if ip in self.blocked_ips:
-            self.blocked_ips.remove(ip)
-            save_ips(BLOCKLIST_PATH, list(self.blocked_ips))
-            print(f"[ResponseEngine] IP {ip} unblocked")
-            return True
-        return False
+        """
+        Unblock an IP.
 
-    # ------------------------------------------------------------------
-    # Whitelist management
-    # ------------------------------------------------------------------
+        Sets unblocked_at in the DB and removes from the in-memory set.
+        Returns True if the IP was found and unblocked.
+        """
+        success = self._db.unblock_ip_in_db(ip)
+        if success:
+            self.blocked_ips.discard(ip)
+            logger.info("[ResponseEngine] IP %s unblocked.", ip)
+        return success
 
-    def add_to_whitelist(self, ip: str) -> bool:
-        if ip not in self.whitelisted_ips:
-            self.whitelisted_ips.add(ip)
-            save_ips(WHITELIST_PATH, list(self.whitelisted_ips))
-            print(f"[ResponseEngine] IP {ip} added to whitelist")
-            return True
-        return False
-
-    def remove_from_whitelist(self, ip: str) -> bool:
-        if ip in self.whitelisted_ips:
-            self.whitelisted_ips.remove(ip)
-            save_ips(WHITELIST_PATH, list(self.whitelisted_ips))
-            print(f"[ResponseEngine] IP {ip} removed from whitelist")
-            return True
-        return False
-
-    # ------------------------------------------------------------------
-    # Status helpers
-    # ------------------------------------------------------------------
+    # ── Status checks ──────────────────────────────────────────────────────
 
     def is_blocked(self, ip: str) -> bool:
+        """O(1) check using the in-memory set — no DB hit on the hot path."""
         return ip in self.blocked_ips
 
     def is_whitelisted(self, ip: str) -> bool:
         return ip in self.whitelisted_ips
 
-    # ------------------------------------------------------------------
-    # Alerting
-    # ------------------------------------------------------------------
+    # ── Whitelist management ───────────────────────────────────────────────
+
+    def add_to_whitelist(self, ip: str) -> bool:
+        """Add an IP to the in-memory whitelist and unblock it if blocked."""
+        if ip not in self.whitelisted_ips:
+            self.whitelisted_ips.add(ip)
+            self.unblock_ip(ip)
+            return True
+        return False
+
+    def remove_from_whitelist(self, ip: str) -> bool:
+        if ip in self.whitelisted_ips:
+            self.whitelisted_ips.discard(ip)
+            return True
+        return False
+
+    # ── Alerting ───────────────────────────────────────────────────────────
 
     def send_alert(self, ip: str, threat_level: str, reason: str) -> dict:
-        """Write an alert entry to alerts.log and return it."""
+        """
+        Record a CRITICAL alert as a LogEntry in the database.
+        Returns the alert dict for callers that need it.
+        """
         alert = {
-            "timestamp": datetime.now().isoformat(),
-            "ip": ip,
+            "timestamp":    datetime.utcnow().isoformat() + "Z",
+            "ip":           ip,
             "threat_level": threat_level,
-            "reason": reason,
+            "reason":       reason,
         }
-        alert_path = os.path.join(BASE_DIR, "logs", "alerts.log")
-        os.makedirs(os.path.dirname(alert_path), exist_ok=True)
-        with open(alert_path, "a") as f:
-            f.write(json.dumps(alert) + "\n")
-        print(f"[ALERT] Threat detected: {alert}")
+        self._db.store_log_entry(
+            level     = "CRITICAL",
+            component = "response_engine",
+            message   = f"[ALERT] {threat_level.upper()} from {ip}: {reason}",
+            metadata  = alert,
+        )
+        logger.critical("[ALERT] %s from %s — %s", threat_level.upper(), ip, reason)
         return alert
 
-    # ------------------------------------------------------------------
-    # Unified response executor (called by app.py /api/response endpoint)
-    # ------------------------------------------------------------------
+    # ── Unified executor ───────────────────────────────────────────────────
 
     def execute_response(self, response_config: dict) -> dict:
         """
         Execute a response action based on the provided configuration.
 
         Expected keys in response_config:
-            type        : str  — one of "block_ip", "rate_limit", "alert", "isolate"
-            ip          : str  — target IP address
-            threat_id   : str  — optional threat identifier
-            threat_level: str  — optional severity label
-            reason      : str  — optional human-readable reason
+            type        : "block_ip" | "rate_limit" | "alert" | "isolate"
+            ip          : target IP address
+            threat_id   : optional identifier
+            threat_level: optional severity label
+            reason      : optional human-readable reason
             hard        : bool — for block_ip; whether to hard-block (default True)
+            duration    : int  — seconds for rate_limit (default 10)
         """
         response_type = response_config.get("type", "alert")
-        ip = response_config.get("ip", "unknown")
-        threat_level = response_config.get("threat_level", "unknown")
-        reason = response_config.get("reason", "Automated response")
-        threat_id = response_config.get("threat_id", "N/A")
+        ip            = response_config.get("ip", "unknown")
+        threat_level  = response_config.get("threat_level", "unknown")
+        reason        = response_config.get("reason", "Automated response")
+        threat_id     = response_config.get("threat_id", "N/A")
 
         result: dict = {
-            "type": response_type,
-            "ip": ip,
+            "type":      response_type,
+            "ip":        ip,
             "threat_id": threat_id,
-            "timestamp": datetime.now().isoformat(),
-            "success": False,
-            "details": "",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "success":   False,
+            "details":   "",
         }
 
         try:
             if response_type == "block_ip":
-                hard = response_config.get("hard", True)
-                action = self.block_ip(ip, hard=hard)
+                hard   = response_config.get("hard", True)
+                action = self.block_ip(ip, hard=hard, reason=reason)
                 result["success"] = True
                 result["details"] = action
 
             elif response_type == "rate_limit":
-                action = self.apply_soft_block(ip, duration=response_config.get("duration", 10))
+                duration = int(response_config.get("duration", 10))
+                action   = self.apply_soft_block(ip, duration=duration)
                 result["success"] = True
                 result["details"] = action
 
@@ -170,9 +199,8 @@ class ResponseEngine:
                 result["details"] = f"Alert logged: {alert}"
 
             elif response_type == "isolate":
-                # Hard-block + alert for full isolation
-                block_action = self.block_ip(ip, hard=True)
-                alert = self.send_alert(ip, threat_level, f"[ISOLATE] {reason}")
+                block_action = self.block_ip(ip, hard=True, reason=f"[ISOLATE] {reason}")
+                alert        = self.send_alert(ip, threat_level, f"[ISOLATE] {reason}")
                 result["success"] = True
                 result["details"] = f"{block_action}; alert logged"
 
@@ -181,6 +209,6 @@ class ResponseEngine:
 
         except Exception as e:
             result["details"] = f"Error executing response: {e}"
-            print(f"[ResponseEngine] Error in execute_response: {e}")
+            logger.error("[ResponseEngine] execute_response error: %s", e, exc_info=True)
 
         return result

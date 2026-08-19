@@ -56,15 +56,17 @@ def top_attacking_ips(session: Session, limit: int = 10, hours: int = 24) -> Lis
 
 
 def get_hourly_threat_counts(session: Session, hours: int = 24) -> List[Dict[str, Any]]:
-    """Return threat counts bucketed by hour for the last N hours."""
-    since = datetime.utcnow() - timedelta(hours=hours)
+    """Return threat counts bucketed by hour for the last N hours (DB-portable)."""
+    from backend.database.repositories.threat_repo import _hour_bucket_expr
+    since     = datetime.utcnow() - timedelta(hours=hours)
+    hour_expr = _hour_bucket_expr(session)
     rows = (
         session.query(
-            func.strftime("%Y-%m-%d %H:00:00", Threat.timestamp).label("hour"),
+            hour_expr.label("hour"),
             func.count(Threat.id).label("count"),
         )
         .filter(Threat.timestamp >= since)
-        .group_by(func.strftime("%Y-%m-%d %H:00:00", Threat.timestamp))
+        .group_by(hour_expr)
         .order_by("hour")
         .all()
     )

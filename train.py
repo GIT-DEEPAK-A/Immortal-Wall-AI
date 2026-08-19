@@ -75,9 +75,9 @@ def smoke_test(engine) -> None:
         ("normal",          normal_traffic()),
     ]
 
-    print("\n── Smoke test ──────────────────────────────────────────────")
+    print("\n-- Smoke test --------------------------------------------------------------")
     print(f"  {'case':<22} {'predicted':<12} {'score':>7}  {'conf':>7}  top attribution")
-    print("  " + "─" * 70)
+    print("  " + "-" * 70)
 
     all_pass = True
     expected_levels = {
@@ -99,27 +99,27 @@ def smoke_test(engine) -> None:
         pred  = r["ml_level"]
         score = r["ml_score"]
         conf  = r["confidence"]
-        ok    = "✓" if pred == expected_levels.get(name) else "✗"
-        if ok == "✗":
+        ok    = "OK" if pred == expected_levels.get(name) else "FAIL"
+        if ok == "FAIL":
             all_pass = False
 
-        print(f"  {ok} {name:<21} {pred:<12} {score:>7.4f}  {conf:>7.4f}  {top_attr}")
+        print(f"  {ok:<4} {name:<21} {pred:<12} {score:>7.4f}  {conf:>7.4f}  {top_attr}")
 
     print()
     if all_pass:
-        print("  All smoke tests PASSED ✓")
+        print("  All smoke tests PASSED")
     else:
-        print("  WARNING: some smoke tests failed — check training data balance")
+        print("  WARNING: some smoke tests failed -- check training data balance")
 
 
 def main():
     args = parse_args()
 
     print(textwrap.dedent(f"""
-    ╔══════════════════════════════════════════════════════╗
-    ║        Immortal Wall AI — Model Training             ║
-    ║  samples={args.samples:<6}  seed={args.seed:<6}  cv={args.cv}-fold         ║
-    ╚══════════════════════════════════════════════════════╝
+    ======================================================
+         Immortal Wall AI -- Model Training
+      samples={args.samples:<6}  seed={args.seed:<6}  cv={args.cv}-fold
+    ======================================================
     """))
 
     # ── Imports (after sys.path set) ──────────────────────────────────────
@@ -133,7 +133,7 @@ def main():
     )
 
     # ── 1. Generate data ──────────────────────────────────────────────────
-    print(f"[Train] Generating {args.samples:,} samples …")
+    print(f"[Train] Generating {args.samples:,} samples ...")
     X, y = generate_training_data(n_samples=args.samples, random_state=args.seed)
 
     from collections import Counter
@@ -155,7 +155,7 @@ def main():
     importances = meta.get("feature_importances", {})
     ranked = sorted(importances.items(), key=lambda x: x[1], reverse=True)[:10]
     for i, (feat, imp) in enumerate(ranked, 1):
-        bar = "█" * int(imp * 400)
+        bar = "#" * int(imp * 400)
         print(f"  {i:>2}. {feat:<28} {imp:.5f}  {bar}")
 
     # ── 5. Smoke test ─────────────────────────────────────────────────────
@@ -165,18 +165,19 @@ def main():
 
     # ── 6. Print usage hint ───────────────────────────────────────────────
     print(textwrap.dedent("""
-    ─────────────────────────────────────────────────────
+    ---------------------------------------------------------
     Model saved.  Start the backend to use it:
 
         uvicorn backend.app:app --host 0.0.0.0 --port 8000 --reload
 
     Send a test event:
 
-        curl -X POST http://localhost:8000/api/analyze-threat \\
-          -H 'Content-Type: application/json' \\
+        curl -X POST http://localhost:8000/api/analyze-threat
+          -H "Content-Type: application/json"
+          -H "Authorization: Bearer <token>"
           -d '{"ip":"195.154.92.47","event_type":"login","status":"failed",
                "failed_logins":15,"request_rate":25,"user_agent":"sqlmap/1.7"}'
-    ─────────────────────────────────────────────────────
+    ---------------------------------------------------------
     """))
 
 

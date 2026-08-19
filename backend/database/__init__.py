@@ -1,8 +1,14 @@
-from .models import DatabaseManager
+# backend/database/__init__.py
+# Re-export DatabaseManager so existing imports keep working:
+#   from backend.database import db_manager, get_db_manager
+#   from backend.database.db import DatabaseManager
 
-# Global database manager instance
+from backend.database.db import DatabaseManager, get_db
+
+# Module-level singleton
 db_manager = DatabaseManager()
 
+
 def get_db_manager() -> DatabaseManager:
-    """Dependency injection function for FastAPI"""
+    """FastAPI dependency — return the global DatabaseManager."""
     return db_manager

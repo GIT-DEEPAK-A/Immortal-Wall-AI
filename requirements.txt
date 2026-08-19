@@ -8,7 +8,11 @@ starlette==0.41.3               # must match fastapi's pinned dep
 
 # ── Authentication ────────────────────────────────────────────────────
 PyJWT==2.10.1
+python-jose[cryptography]==3.3.0
 python-dotenv==1.0.1
+
+# ── Rate limiting ─────────────────────────────────────────────────────
+slowapi==0.1.9
 
 # ── Machine Learning & Data Processing ────────────────────────────────
 scikit-learn==1.5.2

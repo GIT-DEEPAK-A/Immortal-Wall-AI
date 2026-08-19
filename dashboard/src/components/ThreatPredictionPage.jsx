@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import getApi from '../api';
 
-const ThreatPredictionPage = () => {
+const ThreatPredictionPage = ({ onLogout }) => {
   const [predictionData, setPredictionData] = useState([]);
   const [currentRisk, setCurrentRisk] = useState('LOW');
   const [aiConfidence, setAiConfidence] = useState(0);
@@ -18,10 +18,12 @@ const ThreatPredictionPage = () => {
 
   // Fetch threat predictions and system status
   const fetchData = async () => {
+    const api = getApi();
+    if (!api) return;
     try {
       const [analyticsRes, statusRes] = await Promise.all([
-        axios.get('http://localhost:8000/api/analytics?timeframe=1h'),
-        axios.get('http://localhost:8000/api/system-status')
+        api.get('/api/analytics?timeframe=1h'),
+        api.get('/api/system-status')
       ]);
 
       // Process threat trends for prediction chart

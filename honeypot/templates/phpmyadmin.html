@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>phpMyAdmin — Database Server</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background: #f1f1f1; margin: 0; color: #333; }
+    #pma_navigation { float: left; width: 200px; background: #fff; border-right: 1px solid #ccc; min-height: 100vh; padding: 10px 0; }
+    #pma_navigation h2 { font-size: 12px; padding: 8px 12px; background: #3b3b3b; color: #fff; margin: 0; }
+    .nav-db { padding: 4px 12px; font-size: 12px; cursor: pointer; color: #0078d7; }
+    .nav-db:hover { background: #e8f0fe; }
+    #pma_main { margin-left: 200px; padding: 16px; }
+    .pma-header {
+      background: linear-gradient(to bottom, #f5f5f5, #e8e8e8);
+      border: 1px solid #ccc;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .pma-logo { font-size: 18px; font-weight: bold; color: #e67e00; }
+    table { width: 100%; border-collapse: collapse; background: #fff; font-size: 12px; }
+    th { background: #e0e0e0; padding: 6px 10px; text-align: left; border: 1px solid #ccc; }
+    td { padding: 5px 10px; border: 1px solid #ddd; }
+    tr:nth-child(even) td { background: #f9f9f9; }
+    .section-title { font-size: 13px; font-weight: bold; padding: 10px 0 4px; }
+    a { color: #0078d7; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div id="pma_navigation">
+  <h2>phpMyAdmin</h2>
+  <div class="nav-db">&#128230; nexus_prod</div>
+  <div class="nav-db">&#128230; nexus_auth</div>
+  <div class="nav-db">&#128230; nexus_logs</div>
+  <div class="nav-db">&#128230; nexus_archive</div>
+  <div class="nav-db">&#128230; information_schema</div>
+  <div class="nav-db">&#128230; mysql</div>
+  <div class="nav-db">&#128230; performance_schema</div>
+</div>
+
+<div id="pma_main">
+  <div class="pma-header">
+    <span class="pma-logo">phpMyAdmin</span>
+    <span>MySQL 8.0.35 &nbsp;|&nbsp; nexus-db-01 &nbsp;|&nbsp; root@localhost</span>
+    <span><a href="#">Logout</a></span>
+  </div>
+
+  <div class="section-title">General Settings</div>
+  <table style="margin-bottom:12px;width:auto">
+    <tr><th>Setting</th><th>Value</th></tr>
+    <tr><td>Server type</td><td>MySQL</td></tr>
+    <tr><td>Server version</td><td>8.0.35-MySQL Community Server</td></tr>
+    <tr><td>Protocol version</td><td>10</td></tr>
+    <tr><td>Server charset</td><td>UTF-8 Unicode (utf8mb4)</td></tr>
+    <tr><td>phpMyAdmin version</td><td>5.2.1</td></tr>
+  </table>
+
+  <div class="section-title">Database: nexus_prod &nbsp; (187 tables)</div>
+  <table>
+    <thead>
+      <tr><th>Table</th><th>Rows</th><th>Type</th><th>Size</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>users</td><td>1,284</td><td>InnoDB</td><td>2.3 MB</td><td><a href="#">Browse</a> | <a href="#">Structure</a> | <a href="#">Drop</a></td></tr>
+      <tr><td>sessions</td><td>4,821</td><td>InnoDB</td><td>8.1 MB</td><td><a href="#">Browse</a> | <a href="#">Structure</a> | <a href="#">Drop</a></td></tr>
+      <tr><td>api_keys</td><td>382</td><td>InnoDB</td><td>0.4 MB</td><td><a href="#">Browse</a> | <a href="#">Structure</a> | <a href="#">Drop</a></td></tr>
+      <tr><td>audit_log</td><td>98,234</td><td>InnoDB</td><td>124 MB</td><td><a href="#">Browse</a> | <a href="#">Structure</a> | <a href="#">Drop</a></td></tr>
+      <tr><td>credentials_backup</td><td>1,284</td><td>InnoDB</td><td>0.9 MB</td><td><a href="#">Browse</a> | <a href="#">Structure</a> | <a href="#">Drop</a></td></tr>
+      <tr><td>email_templates</td><td>48</td><td>InnoDB</td><td>0.1 MB</td><td><a href="#">Browse</a> | <a href="#">Structure</a> | <a href="#">Drop</a></td></tr>
+      <tr><td>config</td><td>127</td><td>InnoDB</td><td>0.1 MB</td><td><a href="#">Browse</a> | <a href="#">Structure</a> | <a href="#">Drop</a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

@@ -22,6 +22,13 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Tuple
 
+from backend.threat_intel.constants import (
+    KNOWN_BAD_IPS        as _KNOWN_BAD_IPS,
+    GEO_BAD_PREFIXES     as _GEO_BAD_PREFIXES,
+    SUSPICIOUS_UA_TOKENS as _SUSPICIOUS_UA,
+    SUSPICIOUS_PATHS     as _SUSPICIOUS_PATHS_TUPLE,
+)
+
 # ── Tunable thresholds ─────────────────────────────────────────────────────
 _T_FAILED_LOGINS        = 3       # failed logins before brute-force flag
 _T_REQUEST_RATE_SOFT    = 10.0    # req/s → suspicious
@@ -30,26 +37,6 @@ _T_DISTINCT_PATHS       = 30      # distinct paths → port/dir scan
 _T_PAYLOAD_SOFT_KB      = 200     # KB → large payload suspicious
 _T_PAYLOAD_HARD_KB      = 2048    # KB → very large payload malicious
 _T_SESSION_SHORT_SEC    = 2.0     # session too short → automated tool
-
-# ── Known bad identifiers (mirrors ml_engine for consistency) ─────────────
-_KNOWN_BAD_IPS = frozenset({
-    "195.154.92.47", "185.220.100.255", "91.199.119.66",
-    "45.142.212.100", "194.165.16.77",  "198.51.100.5",
-    "203.0.113.10",   "192.0.2.200",    "5.188.206.26",
-    "80.82.77.139",   "185.234.216.37", "193.32.162.73",
-})
-
-_GEO_BAD_PREFIXES = (
-    "185.220.", "195.154.", "91.199.", "45.142.",
-    "194.165.", "80.82.",   "5.188.",  "193.32.",
-)
-
-_SUSPICIOUS_UA = (
-    "sqlmap", "nmap", "masscan", "nikto", "metasploit",
-    "burpsuite", "dirbuster", "zgrab", "python-requests",
-    "curl/", "wget/", "go-http-client", "libwww",
-    "scrapy", "mechanize", "httpclient",
-)
 
 _SUSPICIOUS_PATHS_RE = re.compile(
     r"(/admin|/phpmyadmin|/\.env|/wp-admin|/shell|"

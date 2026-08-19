@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — Nexus Corporate</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --border:   #334155;
+      --accent:   #3b82f6;
+      --danger:   #ef4444;
+      --success:  #22c55e;
+      --warning:  #f59e0b;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 0;
+      flex-shrink: 0;
+    }
+
+    .sidebar-brand {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+    }
+
+    .sidebar-brand small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+
+    .nav-section { padding: 16px 12px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 20px;
+      font-size: 13.5px;
+      color: var(--muted);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.1s;
+      text-decoration: none;
+    }
+
+    .nav-item.active, .nav-item:hover {
+      color: var(--text);
+      background: rgba(59,130,246,0.08);
+      border-left-color: var(--accent);
+    }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: auto; }
+
+    .topbar {
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      flex-shrink: 0;
+    }
+
+    .topbar-title { font-size: 15px; font-weight: 600; }
+
+    .topbar-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .avatar {
+      width: 30px; height: 30px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+    }
+
+    .content { padding: 28px; flex: 1; }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+
+    .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 700; }
+    .stat-delta { font-size: 12px; margin-top: 4px; }
+
+    .green { color: var(--success); }
+    .red   { color: var(--danger); }
+    .blue  { color: var(--accent); }
+    .amber { color: var(--warning); }
+
+    /* Tables */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+
+    .badge-green { background: rgba(34,197,94,0.15);  color: var(--success); }
+    .badge-red   { background: rgba(239,68,68,0.15);  color: var(--danger); }
+    .badge-blue  { background: rgba(59,130,246,0.15); color: var(--accent); }
+    .badge-amber { background: rgba(245,158,11,0.15); color: var(--warning); }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    th {
+      text-align: left;
+      padding: 10px 20px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      background: rgba(0,0,0,0.2);
+    }
+
+    td {
+      padding: 12px 20px;
+      font-size: 13px;
+      border-top: 1px solid var(--border);
+    }
+
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    .progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-fill { height: 100%; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      Nexus Admin
+      <small>v3.4.1 · Production</small>
+    </div>
+
+    <div class="nav-section">Overview</div>
+    <a class="nav-item active" href="#">&#9632; Dashboard</a>
+    <a class="nav-item" href="#">&#128200; Analytics</a>
+    <a class="nav-item" href="#">&#128276; Alerts <span class="badge badge-red" style="margin-left:auto">7</span></a>
+
+    <div class="nav-section">Management</div>
+    <a class="nav-item" href="#">&#128100; Users</a>
+    <a class="nav-item" href="#">&#128230; Database</a>
+    <a class="nav-item" href="#">&#128194; File Manager</a>
+    <a class="nav-item" href="#">&#128274; Permissions</a>
+
+    <div class="nav-section">System</div>
+    <a class="nav-item" href="#">&#9881; Settings</a>
+    <a class="nav-item" href="#">&#128203; Audit Logs</a>
+    <a class="nav-item" href="#">&#128190; Backups</a>
+  </nav>
+
+  <!-- Main content -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">System Dashboard</span>
+      <div class="topbar-user">
+        <div class="avatar">A</div>
+        admin@nexuscorp.internal
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Active Users</div>
+          <div class="stat-value blue">1,284</div>
+          <div class="stat-delta green">&#9650; 12% this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">DB Connections</div>
+          <div class="stat-value">47 / 100</div>
+          <div class="stat-delta green">&#9679; Healthy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Storage Used</div>
+          <div class="stat-value amber">84 GB</div>
+          <div class="stat-delta amber">&#9650; 68% capacity</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Failed Logins (24h)</div>
+          <div class="stat-value red">23</div>
+          <div class="stat-delta red">&#9650; 41% vs yesterday</div>
+        </div>
+      </div>
+
+      <!-- Users + DB info -->
+      <div class="two-col">
+
+        <div class="card">
+          <div class="card-header">
+            Recent Users
+            <span class="badge badge-blue">1,284 total</span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Username</th><th>Role</th><th>Last Login</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>j.morrison</td>
+                <td>Admin</td>
+                <td>2 min ago</td>
+                <td><span class="badge badge-green">Active</span></td>
+              </tr>
+              <tr>
+                <td>s.patel</td>
+                <td>DBA</td>
+                <td>14 min ago</td>
+                <td><span class="badge badge-green">Active</span></td>
+              </tr>
+              <tr>
+                <td>l.chen</td>
+                <td>Analyst</td>
+                <td>1 hr ago</td>
+                <td><span class="badge badge-amber">Idle</span></td>
+              </tr>
+              <tr>
+                <td>k.okonkwo</td>
+                <td>DevOps</td>
+                <td>3 hrs ago</td>
+                <td><span class="badge badge-amber">Idle</span></td>
+              </tr>
+              <tr>
+                <td>r.santos</td>
+                <td>Viewer</td>
+                <td>2 days ago</td>
+                <td><span class="badge badge-red">Inactive</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            Database Status
+            <span class="badge badge-green">&#9679; Online</span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Database</th><th>Size</th><th>Tables</th><th>Load</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>nexus_prod</td>
+                <td>42.3 GB</td>
+                <td>187</td>
+                <td><span class="badge badge-green">12%</span></td>
+              </tr>
+              <tr>
+                <td>nexus_auth</td>
+                <td>1.2 GB</td>
+                <td>23</td>
+                <td><span class="badge badge-green">8%</span></td>
+              </tr>
+              <tr>
+                <td>nexus_logs</td>
+                <td>18.7 GB</td>
+                <td>12</td>
+                <td><span class="badge badge-amber">54%</span></td>
+              </tr>
+              <tr>
+                <td>nexus_archive</td>
+                <td>120 GB</td>
+                <td>44</td>
+                <td><span class="badge badge-green">3%</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Server info -->
+      <div class="card">
+        <div class="card-header">Server Inventory</div>
+        <table>
+          <thead>
+            <tr><th>Host</th><th>IP Address</th><th>OS</th><th>CPU</th><th>RAM</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>nexus-prod-01</td>
+              <td>10.0.1.10</td>
+              <td>Ubuntu 22.04 LTS</td>
+              <td>
+                <div>34%</div>
+                <div class="progress-bar">
+                  <div class="progress-fill green" style="width:34%;background:#22c55e;"></div>
+                </div>
+              </td>
+              <td>
+                <div>61%</div>
+                <div class="progress-bar">
+                  <div class="progress-fill amber" style="width:61%;background:#f59e0b;"></div>
+                </div>
+              </td>
+              <td><span class="badge badge-green">Running</span></td>
+            </tr>
+            <tr>
+              <td>nexus-db-01</td>
+              <td>10.0.1.20</td>
+              <td>RHEL 9.2</td>
+              <td>
+                <div>78%</div>
+                <div class="progress-bar">
+                  <div class="progress-fill amber" style="width:78%;background:#f59e0b;"></div>
+                </div>
+              </td>
+              <td>
+                <div>45%</div>
+                <div class="progress-bar">
+                  <div class="progress-fill green" style="width:45%;background:#22c55e;"></div>
+                </div>
+              </td>
+              <td><span class="badge badge-green">Running</span></td>
+            </tr>
+            <tr>
+              <td>nexus-backup-01</td>
+              <td>10.0.1.30</td>
+              <td>Debian 12</td>
+              <td>
+                <div>5%</div>
+                <div class="progress-bar">
+                  <div class="progress-fill green" style="width:5%;background:#22c55e;"></div>
+                </div>
+              </td>
+              <td>
+                <div>22%</div>
+                <div class="progress-bar">
+                  <div class="progress-fill green" style="width:22%;background:#22c55e;"></div>
+                </div>
+              </td>
+              <td><span class="badge badge-amber">Standby</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+</body>
+</html>

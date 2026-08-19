@@ -1,183 +1,83 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
 const API_BASE = "http://localhost:8000/api/auth";
 
-/* ── Numpad layout ───────────────────────────────────────────── */
-const PAD_KEYS = [
-  ["1", "2", "3"],
-  ["4", "5", "6"],
-  ["7", "8", "9"],
-  ["CLR", "0", "⌫"],
-];
-
-/* ── Single digit display box ────────────────────────────────── */
-const DigitBox = ({ filled, active, success }) => (
-  <motion.div
-    animate={
-      success
-        ? { scale: [1, 1.15, 1], borderColor: ["#D4AF37", "#4ade80", "#4ade80"] }
-        : active
-        ? { scale: [1, 1.06, 1] }
-        : { scale: 1 }
-    }
-    transition={{
-      duration: success ? 0.4 : 0.5,
-      repeat: active && !success ? Infinity : 0,
-      repeatDelay: 0.8,
-    }}
-    className={`
-      w-11 h-13 rounded-xl flex items-center justify-center
-      border-2 transition-colors duration-200 select-none
-      ${success
-        ? "border-green-400 bg-green-400/10 shadow-lg shadow-green-400/30"
-        : filled
-        ? "border-gold bg-gold/10 shadow-md shadow-gold/20"
-        : active
-        ? "border-gold/60 bg-white/[0.04]"
-        : "border-white/10 bg-white/[0.02]"}
-    `}
-    style={{ height: "3.25rem" }}
-  >
-    {filled ? (
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        className={`w-2.5 h-2.5 rounded-full ${success ? "bg-green-400" : "bg-gold"}`}
-      />
-    ) : null}
-  </motion.div>
-);
-
-/* ── Individual numpad button ─────────────────────────────────── */
-const PadButton = ({ label, onClick, disabled, isAction }) => {
-  const [pressed, setPressed] = useState(false);
-
-  const handlePress = () => {
-    if (disabled) return;
-    setPressed(true);
-    setTimeout(() => setPressed(false), 150);
-    onClick(label);
-  };
-
-  if (label === "CLR") {
-    return (
-      <motion.button
-        onClick={handlePress}
-        disabled={disabled}
-        whileTap={{ scale: 0.9 }}
-        className={`
-          h-14 rounded-2xl flex items-center justify-center text-xs font-bold tracking-widest uppercase
-          transition-all duration-150 select-none
-          ${pressed ? "bg-red-500/30 border-red-400/60" : "bg-red-500/10 border-red-400/20"}
-          border text-red-400 hover:bg-red-500/20 hover:border-red-400/40
-          disabled:opacity-30 disabled:cursor-not-allowed
-        `}
-      >
-        CLR
-      </motion.button>
-    );
-  }
-
-  if (label === "⌫") {
-    return (
-      <motion.button
-        onClick={handlePress}
-        disabled={disabled}
-        whileTap={{ scale: 0.9 }}
-        className={`
-          h-14 rounded-2xl flex items-center justify-center text-lg
-          transition-all duration-150 select-none
-          ${pressed ? "bg-white/15 border-white/30" : "bg-white/[0.04] border-white/10"}
-          border text-text-secondary hover:bg-white/10 hover:text-text-primary
-          disabled:opacity-30 disabled:cursor-not-allowed
-        `}
-      >
-        ⌫
-      </motion.button>
-    );
-  }
-
-  return (
-    <motion.button
-      onClick={handlePress}
-      disabled={disabled}
-      whileTap={{ scale: 0.88 }}
-      className={`
-        h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5
-        transition-all duration-150 select-none font-orbitron font-bold text-xl
-        ${pressed
-          ? "bg-gold/25 border-gold/70 text-gold shadow-lg shadow-gold/30"
-          : "bg-white/[0.04] border-white/10 text-text-primary hover:bg-gold/10 hover:border-gold/30 hover:text-gold"}
-        border disabled:opacity-30 disabled:cursor-not-allowed
-      `}
-    >
+/* ── Input field ─────────────────────────────────────────────── */
+const Field = ({ label, id, type = "text", value, onChange, disabled, autoFocus, placeholder }) => (
+  <div className="flex flex-col gap-1.5">
+    <label htmlFor={id} className="text-[11px] font-mono tracking-widest uppercase text-white/40">
       {label}
-    </motion.button>
-  );
-};
+    </label>
+    <input
+      id={id}
+      type={type}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      autoFocus={autoFocus}
+      autoComplete={type === "password" ? "current-password" : "email"}
+      placeholder={placeholder}
+      className="
+        w-full px-4 py-3 rounded-xl
+        bg-white/[0.04] border border-white/[0.10]
+        text-text-primary text-sm placeholder:text-white/20
+        focus:outline-none focus:border-gold/50 focus:bg-white/[0.07]
+        disabled:opacity-40 disabled:cursor-not-allowed
+        transition-colors duration-200
+      "
+    />
+  </div>
+);
 
 /* ── Main LoginPage ───────────────────────────────────────────── */
 const LoginPage = ({ onLogin }) => {
-  const [passkey, setPasskey] = useState("");
-  const [error,   setError]   = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [shake,   setShake]   = useState(false);
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [error,    setError]    = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [success,  setSuccess]  = useState(false);
+  const [shake,    setShake]    = useState(false);
+  const formRef = useRef(null);
 
-  /* Physical keyboard support */
-  const handleKeyDown = useCallback((e) => {
-    if (loading || success) return;
-    if (/^[0-9]$/.test(e.key)) {
-      setPasskey((p) => (p.length < 6 ? p + e.key : p));
-    } else if (e.key === "Backspace") {
-      setPasskey((p) => p.slice(0, -1));
-    } else if (e.key === "Escape") {
-      setPasskey("");
-      setError("");
-    }
-  }, [loading, success]);
-
+  /* Submit on Enter anywhere in the form */
   useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+    const handler = (e) => {
+      if (e.key === "Enter" && !loading && !success) handleSubmit();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [email, password, loading, success]);
 
-  /* Auto-submit at 6 digits */
-  useEffect(() => {
-    if (passkey.length === 6 && !loading && !success) {
-      handleSubmit(passkey);
-    }
-  }, [passkey]);
+  const handleSubmit = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password || loading || success) return;
 
-  const handlePadPress = (key) => {
-    if (loading || success) return;
-    if (key === "CLR") {
-      setPasskey("");
-      setError("");
-      return;
-    }
-    if (key === "⌫") {
-      setPasskey((p) => p.slice(0, -1));
-      return;
-    }
-    setPasskey((p) => (p.length < 6 ? p + key : p));
-  };
-
-  const handleSubmit = async (currentPasskey) => {
-    const pk = currentPasskey ?? passkey;
-    if (pk.length !== 6 || loading) return;
     setError("");
     setLoading(true);
 
     try {
-      const res = await axios.post(`${API_BASE}/login`, { passkey: pk });
-      if (res.data.success) {
+      const res = await axios.post(
+        `${API_BASE}/login`,
+        { email: trimmedEmail, password },
+        { validateStatus: () => true },   // handle all status codes ourselves
+      );
+
+      if (res.status === 200 && res.data?.access_token) {
         setSuccess(true);
-        setTimeout(onLogin, 900);
+        setTimeout(() => onLogin(res.data.access_token), 900);
+      } else if (res.status === 401) {
+        triggerError("Invalid email or password.");
+      } else if (res.status === 422) {
+        // Pydantic validation error — extract first message
+        const detail = res.data?.detail;
+        const msg = Array.isArray(detail)
+          ? detail[0]?.msg ?? "Invalid input."
+          : String(detail ?? "Invalid input.");
+        triggerError(msg);
       } else {
-        triggerError("Invalid passkey. Try again.");
+        triggerError("Unexpected error. Please try again.");
       }
     } catch {
       triggerError("Backend unreachable. Start the server first.");
@@ -188,7 +88,6 @@ const LoginPage = ({ onLogin }) => {
 
   const triggerError = (msg) => {
     setError(msg);
-    setPasskey("");
     setShake(true);
     setTimeout(() => setShake(false), 500);
   };
@@ -199,7 +98,11 @@ const LoginPage = ({ onLogin }) => {
     <div className="min-h-screen bg-[#050810] flex items-center justify-center relative overflow-hidden">
 
       {/* ── Hex-grid background ── */}
-      <svg className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+      <svg
+        className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
         <defs>
           <pattern id="lhex" width="56" height="100" patternUnits="userSpaceOnUse">
             <polygon points="28,2 54,16 54,44 28,58 2,44 2,16"   fill="none" stroke="#FFD700" strokeWidth="0.6"/>
@@ -216,6 +119,8 @@ const LoginPage = ({ onLogin }) => {
 
       {/* ── Card ── */}
       <motion.div
+        ref={formRef}
+        role="main"
         initial={{ opacity: 0, y: 28, scale: 0.95 }}
         animate={{ opacity: 1, y: 0,  scale: 1 }}
         transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
@@ -230,7 +135,6 @@ const LoginPage = ({ onLogin }) => {
           transition={{ delay: 0.15 }}
         >
           <div className="relative mb-3">
-            {/* Pulse rings */}
             {[1, 2].map((n) => (
               <motion.div
                 key={n}
@@ -238,11 +142,15 @@ const LoginPage = ({ onLogin }) => {
                 style={{ inset: -n * 6 }}
                 animate={{ scale: [1, 1.12 + n * 0.05], opacity: [0.4, 0] }}
                 transition={{ duration: 2.5, repeat: Infinity, delay: n * 0.4 }}
+                aria-hidden="true"
               />
             ))}
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold via-yellow-400 to-amber-500
-                            flex items-center justify-center shadow-2xl shadow-gold/40 relative z-10">
-              <svg viewBox="0 0 120 140" className="w-9 h-9">
+            <div
+              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold via-yellow-400 to-amber-500
+                          flex items-center justify-center shadow-2xl shadow-gold/40 relative z-10"
+              aria-label="Immortal Wall AI logo"
+            >
+              <svg viewBox="0 0 120 140" className="w-9 h-9" aria-hidden="true">
                 <path d="M60 4 L108 24 L108 68 C108 98 84 122 60 132 C36 122 12 98 12 68 L12 24 Z"
                       fill="rgba(0,0,0,0.6)"/>
                 <g stroke="rgba(255,215,0,0.95)" strokeWidth="5" fill="none">
@@ -271,37 +179,48 @@ const LoginPage = ({ onLogin }) => {
           className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6
                      backdrop-blur-xl shadow-2xl shadow-black/70"
         >
-          {/* Heading */}
-          <div className="text-center mb-5">
-            <p className="text-text-primary font-semibold text-sm tracking-wide mb-0.5">
-              Enter System Passkey
-            </p>
-            <p className="text-white/25 text-[11px] font-mono tracking-widest">
-              DEFAULT · · · 1 2 3 4 5 6
-            </p>
-          </div>
+          <h2 className="text-center text-text-primary font-semibold text-sm tracking-wide mb-5">
+            Sign In
+          </h2>
 
-          {/* ── Digit display ── */}
-          <div className="flex gap-2.5 justify-center mb-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <DigitBox
-                key={i}
-                filled={i < passkey.length}
-                active={i === passkey.length && !disabled}
-                success={success}
-              />
-            ))}
-          </div>
+          {/* ── Form fields ── */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+            noValidate
+            className="flex flex-col gap-4 mb-5"
+            aria-label="Login form"
+          >
+            <Field
+              label="Email"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={disabled}
+              autoFocus
+              placeholder="analyst@immortalwall.ai"
+            />
+            <Field
+              label="Password"
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={disabled}
+              placeholder="••••••••"
+            />
+          </form>
 
-          {/* ── Error ── */}
+          {/* ── Error / success feedback ── */}
           <AnimatePresence mode="wait">
             {error && (
               <motion.p
                 key="err"
+                role="alert"
                 initial={{ opacity: 0, y: -4, height: 0 }}
                 animate={{ opacity: 1, y: 0,  height: "auto" }}
-                exit={{   opacity: 0, y: -4, height: 0 }}
-                className="text-red-400 text-[11px] text-center mb-3 px-3 py-2 rounded-lg
+                exit={{   opacity: 0, y: -4,  height: 0 }}
+                className="text-red-400 text-[11px] text-center mb-4 px-3 py-2 rounded-lg
                            bg-red-500/10 border border-red-500/20"
               >
                 {error}
@@ -310,9 +229,10 @@ const LoginPage = ({ onLogin }) => {
             {success && (
               <motion.p
                 key="ok"
+                role="status"
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-green-400 text-[11px] text-center mb-3 px-3 py-2 rounded-lg
+                className="text-green-400 text-[11px] text-center mb-4 px-3 py-2 rounded-lg
                            bg-green-500/10 border border-green-500/20"
               >
                 Access granted — entering system…
@@ -320,24 +240,14 @@ const LoginPage = ({ onLogin }) => {
             )}
           </AnimatePresence>
 
-          {/* ── Numpad ── */}
-          <div className="grid grid-cols-3 gap-2.5 mb-5">
-            {PAD_KEYS.flat().map((key) => (
-              <PadButton
-                key={key}
-                label={key}
-                onClick={handlePadPress}
-                disabled={disabled || (key !== "CLR" && key !== "⌫" && passkey.length === 6)}
-              />
-            ))}
-          </div>
-
-          {/* ── Submit ── */}
+          {/* ── Submit button ── */}
           <motion.button
+            type="submit"
             whileHover={!disabled ? { scale: 1.02 } : {}}
-            whileTap={!disabled ? { scale: 0.97 } : {}}
-            onClick={() => handleSubmit(passkey)}
-            disabled={passkey.length !== 6 || disabled}
+            whileTap={!disabled  ? { scale: 0.97 } : {}}
+            onClick={handleSubmit}
+            disabled={!email.trim() || !password || disabled}
+            aria-busy={loading}
             className="w-full py-3.5 rounded-xl font-orbitron font-bold text-sm tracking-widest uppercase
                        bg-gradient-to-r from-gold to-yellow-400 text-black
                        disabled:opacity-35 disabled:cursor-not-allowed
@@ -349,13 +259,14 @@ const LoginPage = ({ onLogin }) => {
                   animate={{ rotate: 360 }}
                   transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
                   className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full"
+                  aria-hidden="true"
                 />
                 Verifying…
               </span>
             ) : success ? (
               "✓ Access Granted"
             ) : (
-              "Access System →"
+              "Sign In →"
             )}
           </motion.button>
 
@@ -365,7 +276,7 @@ const LoginPage = ({ onLogin }) => {
         </motion.div>
 
         {/* ── Bottom status bar ── */}
-        <div className="flex justify-center gap-6 mt-5">
+        <div className="flex justify-center gap-6 mt-5" aria-hidden="true">
           {["FIREWALL", "AI ENGINE", "HONEYPOT"].map((lbl) => (
             <div key={lbl} className="flex items-center gap-1.5 text-[10px] text-white/20 font-mono">
               <span className="w-1 h-1 rounded-full bg-green-400/50 animate-pulse" />

@@ -1,5 +1,6 @@
-# backend/services/threat_engine.py
 """
+backend/services/threat_engine.py
+───────────────────────────────────
 ThreatEngine — fuses rule-based and ML signals into a single verdict.
 
 Score fusion:
@@ -10,21 +11,24 @@ Thresholds:
   >= 0.40  → suspicious  (alert + soft block if >= 0.60)
   <  0.40  → normal
 
-Response severity:
-  malicious    → block_ip (hard) + alert
-  suspicious   → alert; rate_limit if score >= 0.60
-  normal       → no action
+Dependencies are injected so the application container can share a single
+AdvancedMLEngine and ResponseEngine instance across all routes.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from .rule_engine import evaluate_rules, classify_attack_type
-from .ml_engine import AdvancedMLEngine
-from .response_engine import ResponseEngine
+
+if TYPE_CHECKING:
+    from backend.services.ml_engine import AdvancedMLEngine
+    from backend.services.response_engine import ResponseEngine
+
+logger = logging.getLogger("backend.threat_engine")
 
 # Fusion weights
 _W_RULE = 0.40
@@ -33,13 +37,24 @@ _W_ML   = 0.60
 # Decision thresholds
 _THR_MALICIOUS  = 0.70
 _THR_SUSPICIOUS = 0.40
-_THR_RATE_LIMIT = 0.60   # suspicious + score above this → also rate-limit
+_THR_RATE_LIMIT = 0.60   # suspicious + score >= this → also rate-limit
 
 
 class ThreatEngine:
-    def __init__(self):
-        self.ml_engine       = AdvancedMLEngine()
-        self.response_engine = ResponseEngine()
+    def __init__(
+        self,
+        ml_engine: Optional["AdvancedMLEngine"] = None,
+        response_engine: Optional["ResponseEngine"] = None,
+    ) -> None:
+        if ml_engine is None:
+            from backend.services.ml_engine import AdvancedMLEngine as _ML
+            ml_engine = _ML()
+        if response_engine is None:
+            from backend.services.response_engine import ResponseEngine as _RE
+            response_engine = _RE()
+
+        self.ml_engine       = ml_engine
+        self.response_engine = response_engine
 
     # ── Core pipeline ──────────────────────────────────────────────────────
 
@@ -78,7 +93,6 @@ class ThreatEngine:
         # ── 5. Attack classification ───────────────────────────────────────
         attack_type = event.get("attack_type") or classify_attack_type(event)
         if attack_type == "unknown" and ml_result.get("ml_level") != "normal":
-            # Fall back to ML-suggested label if rules couldn't classify
             attack_type = ml_result.get("ml_level", "unknown")
 
         # ── 6. Automated response ──────────────────────────────────────────
@@ -90,8 +104,8 @@ class ThreatEngine:
                 f"[{attack_type.upper()}] {rule_reason} | ML: {ml_result.get('ml_reason', '')}",
             )
             response_actions = [
-                {"type": "block_ip",  "result": block_res},
-                {"type": "alert",     "result": str(alert_res)},
+                {"type": "block_ip", "result": block_res},
+                {"type": "alert",    "result": str(alert_res)},
             ]
         elif threat_level == "suspicious":
             alert_res = self.response_engine.send_alert(
@@ -153,6 +167,7 @@ class ThreatEngine:
         """
         # Allow callers to send ip_address instead of ip
         if "ip_address" in threat_data and "ip" not in threat_data:
+            threat_data = dict(threat_data)   # don't mutate the caller's dict
             threat_data["ip"] = threat_data["ip_address"]
 
         result = self.analyze_event(threat_data)
